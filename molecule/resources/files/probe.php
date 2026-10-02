@@ -1,6 +1,11 @@
 <?php
 // Read live values: OPcache can fold literal ini_get calls across shared pools (PHP #8699).
 $settings = ini_get_all(null, false);
+$temporary = tempnam(sys_get_temp_dir(), 'php-molecule-');
+$temporaryDirectory = $temporary === false ? false : dirname($temporary);
+if ($temporary !== false) {
+    unlink($temporary);
+}
 header('Content-Type: application/json');
 echo json_encode([
     'environment' => getenv('APP_ENV'),
@@ -12,6 +17,13 @@ echo json_encode([
     'opcache_permissions' => $settings['opcache.validate_permission'] ?? false,
     'opcache_root' => $settings['opcache.validate_root'] ?? false,
     'memory_limit' => $settings['memory_limit'],
+    'open_basedir' => $settings['open_basedir'],
+    'sys_temp_dir' => $settings['sys_temp_dir'],
+    'upload_tmp_dir' => $settings['upload_tmp_dir'],
+    'temporary_directory' => $temporaryDirectory,
+    'own_code_readable' => file_get_contents(__FILE__) !== false,
+    'outside_readable' => @file_get_contents('/etc/hostname') !== false,
+
     'display_errors' => $settings['display_errors'],
     'expose_php' => $settings['expose_php'],
     'fix_pathinfo' => $settings['cgi.fix_pathinfo'],

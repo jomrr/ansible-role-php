@@ -56,13 +56,16 @@ php_fpm_pool_defaults:
   php_admin_value[error_log]: /proc/self/fd/2
   php_admin_value[memory_limit]: 128M
 
-# Authoritative FPM pools with optional native settings and environment maps.
+# Authoritative FPM pools with optional filesystem paths, native settings and environments.
 php_fpm_pools:
   - name: www
 # - name: kanboard
+#   open_basedir: /var/www/kanboard:/var/lib/php/kanboard
+#   sys_temp_dir: /var/lib/php/kanboard/tmp
+#   upload_tmp_dir: /var/lib/php/kanboard/uploads
 #   settings:
-#     user: nginx
-#     group: nginx
+#     user: kanboard
+#     group: kanboard
 #     listen.owner: nginx
 #     listen.group: nginx
 #     chdir: /var/www/kanboard

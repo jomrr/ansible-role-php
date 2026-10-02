@@ -13,6 +13,9 @@
         state: disabled
     php_fpm_pools:
       - name: app
+        open_basedir: /var/www/php-molecule:/var/lib/php-molecule:/etc/hostname
+        sys_temp_dir: /var/lib/php-molecule/changed
+        upload_tmp_dir: /var/lib/php-molecule/changed
         settings:
           user: phpapp
           group: phpapp
@@ -54,6 +57,11 @@
           - not __php_body.bz2
           - __php_body.environment == 'changed'
           - __php_body.memory_limit == '256M'
+          - __php_body.open_basedir == '/var/www/php-molecule:/var/lib/php-molecule:/etc/hostname'
+          - __php_body.outside_readable
+          - __php_body.sys_temp_dir == '/var/lib/php-molecule/changed'
+          - __php_body.upload_tmp_dir == '/var/lib/php-molecule/changed'
+          - __php_body.temporary_directory == '/var/lib/php-molecule/changed'
       vars:
         __php_body: '{{ (__php_changed.stdout | from_json).body | from_json }}'
 

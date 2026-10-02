@@ -44,6 +44,9 @@ provisioner:
         php_fpm_pools:
           - name: "www"
           - name: "app"
+            open_basedir: "/var/www/php-molecule:/var/lib/php-molecule"
+            sys_temp_dir: "/var/lib/php-molecule/tmp"
+            upload_tmp_dir: "/var/lib/php-molecule/uploads"
             settings:
               user: "phpapp"
               group: "phpapp"
@@ -52,6 +55,9 @@ provisioner:
               listen.group: "phpapp"
               chdir: "/var/www/php-molecule"
               php_admin_value[memory_limit]: "192M"
+              php_admin_value[open_basedir]: "/"
+              php_admin_value[sys_temp_dir]: "/tmp"
+              php_admin_value[upload_tmp_dir]: "/tmp"
             environment:
               APP_ENV: "production"
               PATH: "/usr/local/bin:/usr/bin:/bin"

@@ -69,6 +69,19 @@
       loop_control:
         loop_var: __php_suffix
 
+    - name: PHP | Create private application temporary directories
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: '/var/lib/php-molecule/{{ __php_directory }}'
+        state: directory
+        owner: phpapp
+        group: phpapp
+        mode: '0700'
+      loop: [tmp, uploads, changed]
+      loop_control:
+        loop_var: __php_directory
+
     - name: PHP | Create test service environment directory
       become: true
       become_user: root

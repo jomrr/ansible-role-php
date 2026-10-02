@@ -116,6 +116,20 @@ argument_specs:
             required: true
             description: Unique pool and filename component; letters, digits, underscores
               and hyphens, excluding global.
+          open_basedir:
+            type: str
+            description: Colon-separated allowed filesystem paths for this pool, emitted
+              as php_admin_value[open_basedir]. Overrides the matching native setting; omitted
+              leaves that setting unchanged.
+          sys_temp_dir:
+            type: str
+            description: Existing private temporary directory for this pool, emitted as
+              php_admin_value[sys_temp_dir]. Overrides the matching native setting; omitted
+              leaves that setting unchanged.
+          upload_tmp_dir:
+            type: str
+            description: Existing private upload directory for this pool, emitted as php_admin_value[upload_tmp_dir].
+              Overrides the matching native setting; omitted leaves that setting unchanged.
           settings:
             type: dict
             default: {}

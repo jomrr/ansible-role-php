@@ -47,6 +47,9 @@
           - __php_body.from_master == __php_expected_master[__php_result.__php_name]
           - __php_body.environment == __php_expected_environment[__php_result.__php_name]
           - __php_body.memory_limit == __php_expected_memory[__php_result.__php_name]
+          - __php_body.own_code_readable
+          - __php_body.outside_readable == (__php_result.__php_name == 'www')
+          - __php_body.temporary_directory is string
       loop: '{{ __php_responses.results }}'
       loop_control:
         loop_var: __php_result
@@ -57,6 +60,17 @@
         __php_expected_environment: {www: false, app: production}
         __php_expected_memory: {www: 128M, app: 192M}
         __php_expected_master: {www: false, app: must-not-reach-workers}
+
+    - name: PHP | Verify application filesystem restrictions and private temporary paths
+      ansible.builtin.assert:
+        quiet: true
+        that:
+          - __php_body.open_basedir == '/var/www/php-molecule:/var/lib/php-molecule'
+          - __php_body.sys_temp_dir == '/var/lib/php-molecule/tmp'
+          - __php_body.upload_tmp_dir == '/var/lib/php-molecule/uploads'
+          - __php_body.temporary_directory == '/var/lib/php-molecule/tmp'
+      vars:
+        __php_body: '{{ (__php_responses.results[1].stdout | from_json).body | from_json }}'
 
     - name: PHP | Request a non-PHP extension
       become: true

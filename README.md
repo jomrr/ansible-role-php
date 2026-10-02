@@ -38,8 +38,8 @@ Zend extensions. Reapplying unchanged input is idempotent.
 ## Requirements
 
 - Custom worker and socket users/groups must exist before applying the role.
-- Custom chdir, chroot, socket parents, log and session/cache directories must
-  exist with suitable ownership and MAC labels.
+- Custom chdir, chroot, socket parents, log, temporary, upload and session/cache
+  directories must exist with suitable ownership and MAC labels.
 
 ## Dependencies
 
@@ -237,6 +237,20 @@ configuration before reload, then enables and starts FPM.
 - Pool settings are a flat map of native FPM directives, including
   php_value[...], php_flag[...], php_admin_value[...] and php_admin_flag[...].
   Quote values such as 'on', 'off', 'yes', 'no', and '0660' in YAML.
+- Optional pool fields open_basedir, sys_temp_dir and upload_tmp_dir emit the
+  matching php_admin_value directives. These string values override matching
+  entries in php_fpm_pool_defaults and the pool's settings. Omitted fields
+  preserve native settings; the default www pool adds no application-specific
+  path restrictions.
+- Set open_basedir to colon-separated absolute paths covering application code,
+  sessions, caches, logs and temporary files. Set sys_temp_dir and
+  upload_tmp_dir explicitly to private directories inside those paths, writable
+  by the pool user (typically mode 0700). Provision these directories
+  separately; TMP/TMPDIR environment variables alone do not configure uploads.
+- open_basedir is an additional filesystem restriction, not a tenant sandbox,
+  and disables PHP's realpath cache. Retain separate application accounts and
+  filesystem permissions. Add paths required by application libraries
+  explicitly.
 - A pool's environment map emits env[NAME] entries with quoted values. Names
   must be shell-style identifiers; values must not contain double quotes or line
   breaks. FPM expands $NAME references from the master's environment.
@@ -269,8 +283,8 @@ configuration before reload, then enables and starts FPM.
   reapply the role afterward.
 - Defaults log worker errors through FPM's captured stderr. Native slowlog and
   php_admin_value[error_log] settings can select application log files;
-  provision their paths and log rotation separately. Function blacklists and
-  open_basedir are not imposed.
+  provision their paths and log rotation separately. Function blacklists are not
+  imposed.
 
 ## Supported Platforms
 
@@ -300,8 +314,10 @@ and a local Unix socket.
 
 ### Kanboard and a separate www pool on Fedora
 
-The nginx account and application, session, cache and log directories
-are provisioned beforehand. This example uses native FPM directives.
+The kanboard application account and nginx socket group exist beforehand.
+Application, session, cache and log paths are provisioned separately;
+temporary and upload directories belong to kanboard with mode 0700.
+The allowed paths cover these directories without granting shared /tmp access.
 
 ```yaml
 
@@ -318,9 +334,12 @@ are provisioned beforehand. This example uses native FPM directives.
       php_fpm_pools:
         - name: www
         - name: kanboard
+          open_basedir: /var/www/kanboard:/var/lib/php/kanboard:/var/log/php-fpm/kanboard-error.log
+          sys_temp_dir: /var/lib/php/kanboard/tmp
+          upload_tmp_dir: /var/lib/php/kanboard/uploads
           settings:
-            user: nginx
-            group: nginx
+            user: kanboard
+            group: kanboard
             listen: /run/php-fpm/kanboard.sock
             listen.owner: nginx
             listen.group: nginx
@@ -354,6 +373,7 @@ are provisioned beforehand. This example uses native FPM directives.
 ## References
 
 - [PHP-FPM configuration](https://www.php.net/manual/en/install.fpm.configuration.php)
+- [PHP filesystem and upload settings](https://www.php.net/manual/en/ini.core.php#ini.open-basedir)
 - [PHP INI scan directories](https://www.php.net/manual/en/configuration.file.php)
 - [PHP 8.5 OPcache change](https://www.php.net/migration85.incompatible.php)
 - [OPcache configuration](https://www.php.net/manual/en/opcache.configuration.php)

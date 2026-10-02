@@ -7,7 +7,11 @@
   'listen.owner': __php_user, 'listen.group': __php_group,
   'listen': __php_runtime_dir ~ '/' ~ __php_pool.name ~ '.sock'
 } %}
-{% for __php_key, __php_value in (__php_platform_pool | combine(php_fpm_pool_defaults, __php_pool.settings | default({}))).items() %}
+{% set __php_config = namespace(directives=__php_platform_pool | combine(php_fpm_pool_defaults, __php_pool.settings | default({}))) %}
+{% for __php_directive in ['open_basedir', 'sys_temp_dir', 'upload_tmp_dir'] if __php_directive in __php_pool %}
+{% set __php_config.directives = __php_config.directives | combine({'php_admin_value[' ~ __php_directive ~ ']': __php_pool[__php_directive]}) %}
+{% endfor %}
+{% for __php_key, __php_value in __php_config.directives.items() %}
 {{ __php_key }} = {{ __php_value }}
 {% endfor %}
 {% for __php_key, __php_value in (__php_pool.environment | default({})).items() %}
