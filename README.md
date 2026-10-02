@@ -365,6 +365,39 @@ and a local Unix socket.
     - role: jomrr.php
 ```
 
+### Dedicated application account with nginx socket access
+
+This inventory fragment runs PHP workers as app:app. The listen.owner
+and listen.group settings grant nginx access to the socket; they do not
+determine the worker identity. Omitting listen retains the platform socket
+path for the app pool.
+Create the app and nginx users/groups before applying the role. Provision
+/srv/app/code as readable by app and writable only by the deployment account;
+/var/lib/app and its session, tmp and uploads subdirectories belong to app:app
+with mode 0700. Use a distinct account and private directories for each
+application; nginx does not need membership in the app group.
+
+```yaml
+php_session_gc_paths:
+  - path: /var/lib/app/session
+    maxlifetime: 1440
+php_fpm_pools:
+  - name: app
+    open_basedir: /srv/app/code:/var/lib/app
+    sys_temp_dir: /var/lib/app/tmp
+    upload_tmp_dir: /var/lib/app/uploads
+    settings:
+      user: app
+      group: app
+      listen.owner: nginx
+      listen.group: nginx
+      listen.mode: '0660'
+      chdir: /srv/app/code
+      php_admin_value[session.save_handler]: files
+      php_admin_value[session.save_path]: /var/lib/app/session
+      php_admin_value[session.gc_maxlifetime]: '1440'
+```
+
 ### Kanboard and a separate www pool on Fedora
 
 The kanboard application account and nginx socket group exist beforehand.
