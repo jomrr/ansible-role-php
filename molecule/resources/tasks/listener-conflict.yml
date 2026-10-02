@@ -1,0 +1,23 @@
+---
+# role: php
+# file: molecule/resources/tasks/listener-conflict.yml
+
+
+- name: PHP | Reject a conflicting pool configuration
+  block:
+    - name: PHP | Apply conflicting listeners
+      ansible.builtin.include_role:
+        name: '{{ lookup("ansible.builtin.env", "MOLECULE_PROJECT_DIRECTORY") }}'
+      vars:
+        php_fpm_pools: '{{ __php_listener_case.pools }}'
+        php_fpm_pool_defaults: '{{ __php_listener_case.defaults | default({}) }}'
+
+    - name: PHP | Fail when duplicate listeners are accepted
+      ansible.builtin.fail:
+        msg: The role accepted duplicate effective listen addresses.
+  rescue:
+    - name: PHP | Verify listeners failed before configuration changes
+      ansible.builtin.assert:
+        quiet: true
+        that:
+          - "ansible_failed_task.name == 'PHP | Require a nonempty unique pool list'"

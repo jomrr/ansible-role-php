@@ -120,6 +120,28 @@
             that:
               - "ansible_failed_task.name == 'PHP | Require cleanup coverage for custom file sessions'"
 
+    - name: PHP | Reject duplicate effective pool listeners
+      ansible.builtin.include_tasks: ../tasks/listener-conflict.yml
+      loop:
+        - name: explicit TCP listeners
+          pools:
+            - {name: first, settings: {listen: '127.0.0.1:9000'}}
+            - {name: second, settings: {listen: '127.0.0.1:9000'}}
+        - name: explicit and implicit socket
+          pools:
+            - {name: www}
+            - name: other
+              settings:
+                listen: "{{ '/run/php' if ansible_facts.os_family == 'Debian' else '/run/php-fpm' }}/www.sock"
+        - name: inherited listener
+          defaults: {listen: /run/php-shared.sock}
+          pools:
+            - {name: first}
+            - {name: second}
+      loop_control:
+        loop_var: __php_listener_case
+        label: '{{ __php_listener_case.name }}'
+
     - name: PHP | Request a non-PHP extension
       become: true
       become_user: root

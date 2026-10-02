@@ -17,11 +17,15 @@
     that:
       - php_fpm_pools | length > 0
       - php_fpm_pools | map(attribute='name') | unique | length == php_fpm_pools | length
+      - >-
+        php_fpm_pools | map(attribute='settings', default={}) | map(attribute='listen', default=php_fpm_pool_defaults.listen | default(''))
+        | zip(php_fpm_pools | map(attribute='name') | map('regex_replace', '^(.*)$', __php_runtime_dir ~ '/\\1.sock'))
+        | map('reject', 'equalto', '') | map('first') | map('string') | unique(case_sensitive=true) | length == php_fpm_pools | length
       - php_modules | map(attribute='name') | unique | length == php_modules | length
       - "'include' not in php_fpm_global_settings"
       - "'include' not in php_fpm_pool_defaults"
     quiet: true
-    fail_msg: 'At least one pool and unique pool/module names are required; the role owns the FPM include directive.'
+    fail_msg: 'At least one pool, unique pool/module names and unique listen addresses are required; the role owns the FPM include directive.'
 
 - name: PHP | Validate extension names
   ansible.builtin.assert:
