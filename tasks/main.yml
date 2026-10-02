@@ -1,0 +1,169 @@
+---
+# role: php
+# file: tasks/main.yml
+
+- name: PHP | Load platform settings
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __php_platform_files) }}"
+  vars:
+    __php_platform_files:
+      files:
+        - '{{ ansible_facts.os_family }}.yml'
+      paths:
+        - '{{ role_path }}/vars'
+
+- name: PHP | Validate configuration inputs
+  ansible.builtin.import_tasks: assert.yml
+
+- name: PHP | Install PHP-FPM and extension packages
+  become: true
+  become_user: root
+  ansible.builtin.package:
+    name: '{{ __php_packages + php_extra_packages }}'
+    state: present
+  notify: reload php-fpm
+
+- name: PHP | Discover the distribution FPM version on Debian systems
+  ansible.builtin.command:
+    argv:
+      - dpkg-query
+      - --show
+      - '--showformat=${Depends}'
+      - php-fpm
+  register: __php_fpm_dependency
+  changed_when: false
+  check_mode: false
+  when: ansible_facts.os_family == 'Debian'
+
+- name: PHP | Create the managed pool and runtime directories
+  become: true
+  become_user: root
+  ansible.builtin.file:
+    path: '{{ __php_directory }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - '{{ __php_pool_dir }}/ansible'
+    - '{{ __php_runtime_dir }}'
+  loop_control:
+    loop_var: __php_directory
+
+- name: PHP | Configure selected extensions
+  become: true
+  become_user: root
+  ansible.builtin.template:
+    src: module.ini.j2
+    dest: '{{ __php_scan_dir }}/{{ __php_module.filename | default(__php_module_prefix ~ __php_module.name ~ ".ini") }}'
+    owner: root
+    group: root
+    mode: '0644'
+    follow: false
+  loop: '{{ php_modules }}'
+  loop_control:
+    loop_var: __php_module
+    label: '{{ __php_module.name }}'
+  no_log: true
+  notify: reload php-fpm
+
+- name: PHP | Configure the PHP baseline
+  become: true
+  become_user: root
+  ansible.builtin.template:
+    src: php.ini.j2
+    dest: '{{ __php_scan_dir }}/99-ansible.ini'
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: true
+  notify: reload php-fpm
+
+- name: PHP | Configure application pools
+  become: true
+  become_user: root
+  ansible.builtin.template:
+    src: pool.conf.j2
+    dest: '{{ __php_pool_dir }}/ansible/{{ __php_pool.name }}.conf'
+    owner: root
+    group: root
+    mode: '0600'
+    validate: '{{ __php_validate_config }}'
+  loop: '{{ php_fpm_pools }}'
+  loop_control:
+    loop_var: __php_pool
+    label: '{{ __php_pool.name }}'
+  no_log: true
+  notify: reload php-fpm
+
+- name: PHP | Find previously managed pools
+  become: true
+  become_user: root
+  ansible.builtin.find:
+    paths: '{{ __php_pool_dir }}/ansible'
+    patterns: '*.conf'
+    file_type: file
+  register: __php_existing_pools
+
+- name: PHP | Remove obsolete managed pools
+  become: true
+  become_user: root
+  ansible.builtin.file:
+    path: '{{ __php_obsolete_pool.path }}'
+    state: absent
+  loop: '{{ __php_existing_pools.files }}'
+  loop_control:
+    loop_var: __php_obsolete_pool
+    label: '{{ __php_obsolete_pool.path }}'
+  when: (__php_obsolete_pool.path | basename | splitext | first) not in php_fpm_pools | map(attribute='name')
+  notify: reload php-fpm
+
+- name: PHP | Configure the FPM master with only managed pools
+  become: true
+  become_user: root
+  ansible.builtin.template:
+    src: php-fpm.conf.j2
+    dest: '{{ __php_fpm_config }}'
+    owner: root
+    group: root
+    mode: '0600'
+    validate: '{{ __php_validate_config }}'
+  no_log: true
+  notify: reload php-fpm
+
+- name: PHP | Read the extensions loaded by FPM
+  become: true
+  become_user: root
+  ansible.builtin.command:
+    argv:
+      - '{{ __php_fpm_binary }}'
+      - -m
+  changed_when: false
+  register: __php_loaded_modules
+  failed_when: __php_loaded_modules.rc != 0 or __php_loaded_modules.stderr | length > 0
+  no_log: true
+
+- name: PHP | Verify selected extension states
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((__php_module.loaded_name | default(__php_module.name) | lower) in (__php_loaded_modules.stdout_lines | map('lower')))
+        == (__php_module.state | default('enabled') == 'enabled')
+    quiet: true
+    fail_msg: 'FPM did not load the requested extension state; check packages, filenames and compiled-in extensions.'
+  loop: "{{ php_modules | map(attribute='name') }}"
+  loop_control:
+    loop_var: __php_module_name
+  vars:
+    __php_module: "{{ php_modules | selectattr('name', 'equalto', __php_module_name) | first }}"
+  when: not ansible_check_mode
+
+- name: PHP | Apply validated configuration changes
+  ansible.builtin.meta: flush_handlers
+
+- name: PHP | Enable and start PHP-FPM
+  become: true
+  become_user: root
+  ansible.builtin.service:
+    name: '{{ __php_service }}'
+    enabled: true
+    state: started

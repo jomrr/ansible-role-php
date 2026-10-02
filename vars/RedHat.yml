@@ -1,0 +1,20 @@
+---
+# role: php
+# file: vars/RedHat.yml
+
+__php_packages: [php-fpm, php-cli]
+__php_user: apache
+__php_group: apache
+__php_fpm_binary: /usr/sbin/php-fpm
+__php_service: php-fpm
+__php_fpm_config: /etc/php-fpm.conf
+__php_pool_dir: /etc/php-fpm.d
+__php_scan_dir: /etc/php.d
+__php_runtime_dir: /run/php-fpm
+__php_module_prefix: '20-'
+__php_validate_config: /usr/sbin/php-fpm -t -y %s
+__php_global_defaults:
+  pid: /run/php-fpm/php-fpm.pid
+  error_log: /var/log/php-fpm/error.log
+  log_level: notice
+  daemonize: 'no'

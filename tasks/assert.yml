@@ -1,0 +1,73 @@
+---
+# role: php
+# file: tasks/assert.yml
+
+- name: PHP | Validate pool names
+  ansible.builtin.assert:
+    that:
+      - __php_pool_name is match('^[A-Za-z0-9_][A-Za-z0-9_-]*$')
+      - __php_pool_name != 'global'
+    quiet: true
+  loop: "{{ php_fpm_pools | map(attribute='name') }}"
+  loop_control:
+    loop_var: __php_pool_name
+
+- name: PHP | Require a nonempty unique pool list
+  ansible.builtin.assert:
+    that:
+      - php_fpm_pools | length > 0
+      - php_fpm_pools | map(attribute='name') | unique | length == php_fpm_pools | length
+      - php_modules | map(attribute='name') | unique | length == php_modules | length
+      - "'include' not in php_fpm_global_settings"
+      - "'include' not in php_fpm_pool_defaults"
+    quiet: true
+    fail_msg: 'At least one pool and unique pool/module names are required; the role owns the FPM include directive.'
+
+- name: PHP | Validate extension names
+  ansible.builtin.assert:
+    that:
+      - __php_module_name is match('^[A-Za-z0-9_][A-Za-z0-9_-]*$')
+    quiet: true
+  loop: "{{ php_modules | map(attribute='name') }}"
+  loop_control:
+    loop_var: __php_module_name
+
+- name: PHP | Validate extension filenames
+  ansible.builtin.assert:
+    that:
+      - __php_module_filename is match('^[A-Za-z0-9_][A-Za-z0-9_.-]*\.ini$')
+      - __php_module_filename != '99-ansible.ini'
+    quiet: true
+  loop: "{{ php_modules | selectattr('filename', 'defined') | map(attribute='filename') }}"
+  loop_control:
+    loop_var: __php_module_filename
+
+- name: PHP | Require a distinct file for each managed extension
+  ansible.builtin.assert:
+    that:
+      - (__php_explicit_files + __php_default_files) | unique | length == php_modules | length
+    quiet: true
+    fail_msg: 'Each managed extension must own a distinct INI filename.'
+  vars:
+    __php_explicit_files: "{{ php_modules | selectattr('filename', 'defined') | map(attribute='filename') }}"
+    __php_default_files: >-
+      {{ php_modules | rejectattr('filename', 'defined') | map(attribute='name')
+         | map('regex_replace', '^', __php_module_prefix) | map('regex_replace', '$', '.ini') }}
+
+- name: PHP | Validate pool environments and reserved directives
+  ansible.builtin.assert:
+    that:
+      - "'include' not in (__php_pool.settings | default({}))"
+      - >-
+        __php_pool.environment | default({}) | list
+        | reject('match', '^[A-Za-z_][A-Za-z0-9_]*$') | length == 0
+      - >-
+        __php_pool.environment | default({}) | dict2items | map(attribute='value') | map('string')
+        | select('search', '["\\r\\n]') | length == 0
+    quiet: true
+    fail_msg: 'Pool includes are role-owned; environment names must be identifiers and values must not contain quotes or line breaks.'
+  loop: '{{ php_fpm_pools }}'
+  loop_control:
+    loop_var: __php_pool
+    label: '{{ __php_pool.name }}'
+  no_log: true

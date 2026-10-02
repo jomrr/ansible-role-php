@@ -1,0 +1,17 @@
+---
+# role: php
+# file: meta/main.yml
+
+galaxy_info:
+  author: Jonas Mauer
+  description: Install hardened PHP-FPM with application pools, explicit environments and managed extensions.
+  galaxy_tags:
+    - php
+    - fpm
+    - web
+    - application
+  issue_tracker_url: https://github.com/jomrr/ansible-role-php/issues
+  license: MIT
+  min_ansible_version: "2.20"
+  namespace: jomrr
+  role_name: php

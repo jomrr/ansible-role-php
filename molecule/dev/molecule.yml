@@ -1,0 +1,137 @@
+---
+# role: php
+# file: molecule/dev/molecule.yml
+
+dependency:
+  name: "galaxy"
+  options:
+    requirements-file: "${MOLECULE_PROJECT_DIRECTORY}/collections.yml"
+driver:
+  name: "podman"
+provisioner:
+  name: "ansible"
+  config_options:
+    defaults:
+      forks: 8
+      interpreter_python: "auto_silent"
+      callbacks_enabled: "ansible.builtin.default"
+      callback_result_format: "yaml"
+      display_ok_hosts: false
+      display_skipped_hosts: false
+      show_task_path_on_failure: true
+    connection:
+      pipelining: true
+  inventory:
+    group_vars:
+      all:
+        ansible_podman_mount_detection: false
+        __php_test_packages:
+          Debian:
+            - "php-bz2"
+          RedHat: []
+          AlmaLinux:
+            - "php-opcache"
+          Suse:
+            - "php8-bz2"
+          openSUSE Leap:
+            - "php8-bz2"
+            - "php8-opcache"
+        php_extra_packages: "{{ __php_test_packages[ansible_facts.distribution] | default(__php_test_packages[ansible_facts.os_family])\
+          \ }}"
+        php_modules:
+          - name: "bz2"
+            state: "enabled"
+        php_fpm_pools:
+          - name: "www"
+          - name: "app"
+            settings:
+              user: "phpapp"
+              group: "phpapp"
+              listen: "/run/php-molecule-app.sock"
+              listen.owner: "phpapp"
+              listen.group: "phpapp"
+              chdir: "/var/www/php-molecule"
+              php_admin_value[memory_limit]: "192M"
+            environment:
+              APP_ENV: "production"
+              PATH: "/usr/local/bin:/usr/bin:/bin"
+              FROM_MASTER: "$$PHP_MOLECULE_UNLISTED"
+  log: true
+  playbooks:
+    prepare: "../resources/playbooks/prepare.yml"
+    converge: "../resources/playbooks/converge.yml"
+    verify: "../resources/playbooks/verify.yml"
+    side_effect: "../resources/playbooks/side-effect.yml"
+verifier:
+  name: "ansible"
+scenario:
+  test_sequence:
+    - "dependency"
+    - "destroy"
+    - "syntax"
+    - "create"
+    - "prepare"
+    - "converge"
+    - "idempotence"
+    - "check"
+    - "verify"
+    - "side_effect"
+    - "idempotence"
+    - "verify"
+    - "destroy"
+  name: "dev"
+platforms:
+  - name: "almalinux-latest-php"
+    image: "docker.io/jomrr/molecule-almalinux:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: "true"
+    capabilities:
+      - "SYS_ADMIN"
+    security_opts:
+      - "label=disable"
+  - name: "debian-latest-php"
+    image: "docker.io/jomrr/molecule-debian:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: "true"
+    capabilities:
+      - "SYS_ADMIN"
+    security_opts:
+      - "label=disable"
+  - name: "fedora-latest-php"
+    image: "docker.io/jomrr/molecule-fedora:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: "true"
+    capabilities:
+      - "SYS_ADMIN"
+    security_opts:
+      - "label=disable"
+  - name: "opensuse-leap-latest-php"
+    image: "docker.io/jomrr/molecule-opensuse-leap:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: "true"
+    capabilities:
+      - "SYS_ADMIN"
+    security_opts:
+      - "label=disable"
+  - name: "opensuse-tumbleweed-latest-php"
+    image: "docker.io/jomrr/molecule-opensuse-tumbleweed:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: "true"
+    capabilities:
+      - "SYS_ADMIN"
+    security_opts:
+      - "label=disable"
+  - name: "ubuntu-latest-php"
+    image: "docker.io/jomrr/molecule-ubuntu:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: "true"
+    capabilities:
+      - "SYS_ADMIN"
+    security_opts:
+      - "label=disable"

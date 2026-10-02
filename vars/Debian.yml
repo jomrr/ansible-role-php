@@ -1,0 +1,21 @@
+---
+# role: php
+# file: vars/Debian.yml
+
+__php_packages: [php-fpm, php-cli]
+__php_user: www-data
+__php_group: www-data
+__php_version: "{{ __php_fpm_dependency.stdout | regex_search('[0-9]+\\.[0-9]+') }}"
+__php_fpm_binary: '/usr/sbin/php-fpm{{ __php_version }}'
+__php_service: 'php{{ __php_version }}-fpm'
+__php_fpm_config: '/etc/php/{{ __php_version }}/fpm/php-fpm.conf'
+__php_pool_dir: '/etc/php/{{ __php_version }}/fpm/pool.d'
+__php_scan_dir: '/etc/php/{{ __php_version }}/fpm/conf.d'
+__php_runtime_dir: /run/php
+__php_module_prefix: '20-'
+__php_validate_config: '{{ __php_fpm_binary }} -t -y %s'
+__php_global_defaults:
+  pid: '/run/php/php{{ __php_version }}-fpm.pid'
+  error_log: '/var/log/php{{ __php_version }}-fpm.log'
+  log_level: notice
+  daemonize: 'no'

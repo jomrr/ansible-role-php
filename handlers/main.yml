@@ -1,0 +1,24 @@
+---
+# role: php
+# file: handlers/main.yml
+
+- name: PHP | Validate the complete FPM configuration
+  become: true
+  become_user: root
+  ansible.builtin.command:
+    argv:
+      - '{{ __php_fpm_binary }}'
+      - -t
+      - -y
+      - '{{ __php_fpm_config }}'
+  changed_when: false
+  no_log: true
+  listen: reload php-fpm
+
+- name: PHP | Reload PHP-FPM
+  become: true
+  become_user: root
+  ansible.builtin.service:
+    name: '{{ __php_service }}'
+    state: reloaded
+  listen: reload php-fpm

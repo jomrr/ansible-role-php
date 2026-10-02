@@ -1,0 +1,7 @@
+; Managed by ansible.
+; file: {{ template_destpath }}
+
+{% if __php_module.state | default('enabled') == 'disabled' %}; {% endif %}{{ __php_module.directive | default('extension') }}={{ __php_module.extension | default(__php_module.name) }}
+{% for __php_key, __php_value in (__php_module.settings | default({})).items() %}
+{{ __php_key }} = {{ __php_value }}
+{% endfor %}

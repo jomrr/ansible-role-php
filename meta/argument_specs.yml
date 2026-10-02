@@ -1,0 +1,138 @@
+---
+# role: php
+# file: meta/argument_specs.yml
+
+argument_specs:
+  main:
+    short_description: Configure distribution PHP-FPM, application pools and extensions.
+    options:
+      php_extra_packages:
+        type: list
+        default: []
+        elements: str
+        description: Additional native distribution packages providing application extensions.
+      php_modules:
+        type: list
+        default: []
+        elements: dict
+        options:
+          name:
+            type: str
+            required: true
+            description: Unique extension name; letters, digits, underscores and hyphens.
+          state:
+            type: str
+            default: enabled
+            choices:
+              - enabled
+              - disabled
+            description: Enable or comment out this extension directive without uninstalling
+              its package.
+          filename:
+            type: str
+            description: Existing vendor INI basename; default 20-NAME.ini on RedHat/Debian
+              and 10-NAME.ini on SUSE.
+          directive:
+            type: str
+            default: extension
+            choices:
+              - extension
+              - zend_extension
+            description: Native extension loader directive.
+          extension:
+            type: str
+            description: Library to load; defaults to name and can include .so or an absolute
+              library path.
+          loaded_name:
+            type: str
+            description: Name shown by php-fpm -m; defaults to name, use Zend OPcache for
+              opcache.
+          settings:
+            type: dict
+            default: {}
+            no_log: true
+            description: Additional INI settings in this file; supply native INI values
+              as strings.
+        description: Selected extension INI files; omitted modules remain unmanaged. Packages
+          must be installed through php_extra_packages.
+      php_ini_defaults:
+        type: dict
+        default:
+          expose_php: 'Off'
+          display_errors: 'Off'
+          display_startup_errors: 'Off'
+          log_errors: 'On'
+          allow_url_include: 'Off'
+          cgi.fix_pathinfo: '0'
+          opcache.validate_permission: '1'
+          opcache.validate_root: '1'
+          session.use_strict_mode: '1'
+          session.use_only_cookies: '1'
+          session.cookie_httponly: '1'
+          session.cookie_secure: '1'
+          session.cookie_samesite: Lax
+        no_log: true
+        description: PHP hardening baseline merged with php_ini_settings; string values
+          use native INI syntax.
+      php_ini_settings:
+        type: dict
+        default: {}
+        no_log: true
+        description: Overrides merged into php_ini_defaults; specify native INI values as
+          strings.
+      php_fpm_pool_defaults:
+        type: dict
+        default:
+          listen.mode: '0660'
+          listen.allowed_clients: 127.0.0.1,::1
+          pm: dynamic
+          pm.max_children: 10
+          pm.start_servers: 2
+          pm.min_spare_servers: 1
+          pm.max_spare_servers: 3
+          pm.max_requests: 500
+          pm.process_idle_timeout: 10s
+          process.dumpable: 'no'
+          rlimit_core: '0'
+          catch_workers_output: 'yes'
+          clear_env: 'yes'
+          security.limit_extensions: .php
+          request_terminate_timeout: 120s
+          php_admin_flag[log_errors]: 'on'
+          php_admin_flag[display_errors]: 'off'
+          php_admin_value[error_log]: /proc/self/fd/2
+          php_admin_value[memory_limit]: 128M
+        no_log: true
+        description: Native pool baseline; platform worker/socket ownership, restricted
+          sockets and bounded dynamic workers.
+      php_fpm_pools:
+        type: list
+        default:
+          - name: www
+        elements: dict
+        options:
+          name:
+            type: str
+            required: true
+            description: Unique pool and filename component; letters, digits, underscores
+              and hyphens, excluding global.
+          settings:
+            type: dict
+            default: {}
+            no_log: true
+            description: Native directives merged over php_fpm_pool_defaults; listen defaults
+              to PLATFORM_RUNTIME_DIR/NAME.sock.
+          environment:
+            type: dict
+            default: {}
+            no_log: true
+            description: Explicit env[NAME] values for this pool, including FPM $VARIABLE
+              references; do not include quotes or line breaks.
+        description: Authoritative nonempty list of pools; removed pools are deleted from
+          the managed subdirectory.
+      php_fpm_global_settings:
+        type: dict
+        default: {}
+        no_log: true
+        description: Native global FPM overrides; the role owns include. Defaults preserve
+          the distribution PID and error log paths.

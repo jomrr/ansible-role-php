@@ -1,0 +1,90 @@
+---
+# role: php
+# file: molecule/resources/playbooks/verify.yml
+
+
+- name: PHP | Verify PHP-FPM behavior
+  hosts: all
+  gather_facts: true
+  vars:
+    __php_test_sockets:
+      www: "{{ '/run/php' if ansible_facts.os_family == 'Debian' else '/run/php-fpm' }}/www.sock"
+      app: /run/php-molecule-app.sock
+  tasks:
+    - name: PHP | Query both active pools through FastCGI
+      become: true
+      become_user: root
+      ansible.builtin.script:
+        cmd: '../files/fcgi_probe.py {{ __php_test_sockets[__php_name] }} /var/www/php-molecule/probe.php'
+        executable: python3
+      changed_when: false
+      register: __php_responses
+      until: __php_responses is succeeded
+      retries: 10
+      delay: 1
+      loop: [www, app]
+      loop_control:
+        loop_var: __php_name
+
+    - name: PHP | Check effective environments and hardened runtime settings
+      ansible.builtin.assert:
+        quiet: true
+        that:
+          - __php_response.stderr == ''
+          - "'X-Powered-By:' not in __php_response.headers"
+          - __php_body.bz2
+          - __php_body.opcache_loaded
+          - __php_body.opcache_permissions == '1'
+          - __php_body.opcache_root == '1'
+          - __php_body.display_errors in ['', '0']
+          - __php_body.expose_php == ''
+          - __php_body.fix_pathinfo == '0'
+          - __php_body.strict_session == '1'
+          - __php_body.cookie_secure == '1'
+          - __php_body.cookie_httponly == '1'
+          - __php_body.cookie_samesite == 'Lax'
+          - not __php_body.inherited
+          - __php_body.from_master == __php_expected_master[__php_result.__php_name]
+          - __php_body.environment == __php_expected_environment[__php_result.__php_name]
+          - __php_body.memory_limit == __php_expected_memory[__php_result.__php_name]
+      loop: '{{ __php_responses.results }}'
+      loop_control:
+        loop_var: __php_result
+        label: '{{ __php_result.__php_name }}'
+      vars:
+        __php_response: '{{ __php_result.stdout | from_json }}'
+        __php_body: '{{ __php_response.body | from_json }}'
+        __php_expected_environment: {www: false, app: production}
+        __php_expected_memory: {www: 128M, app: 192M}
+        __php_expected_master: {www: false, app: must-not-reach-workers}
+
+    - name: PHP | Request a non-PHP extension
+      become: true
+      become_user: root
+      ansible.builtin.script:
+        cmd: ../files/fcgi_probe.py /run/php-molecule-app.sock /var/www/php-molecule/probe.txt
+        executable: python3
+      changed_when: false
+      register: __php_denied
+
+    - name: PHP | Verify non-PHP execution is denied
+      ansible.builtin.assert:
+        quiet: true
+        that:
+          - "'Status: 403' in (__php_denied.stdout | from_json).headers"
+
+    - name: PHP | Inspect application socket permissions
+      become: true
+      become_user: root
+      ansible.builtin.stat:
+        path: /run/php-molecule-app.sock
+      register: __php_socket
+
+    - name: PHP | Verify socket access restrictions
+      ansible.builtin.assert:
+        quiet: true
+        that:
+          - __php_socket.stat.issock
+          - __php_socket.stat.mode == '0660'
+          - __php_socket.stat.pw_name == 'phpapp'
+          - __php_socket.stat.gr_name == 'phpapp'

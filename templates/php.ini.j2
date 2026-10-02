@@ -1,0 +1,6 @@
+; Managed by ansible.
+; file: {{ template_destpath }}
+
+{% for __php_key, __php_value in php_ini_defaults | combine(php_ini_settings) | dictsort %}
+{{ __php_key }} = {{ __php_value }}
+{% endfor %}

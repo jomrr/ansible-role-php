@@ -1,0 +1,8 @@
+; Managed by ansible.
+; file: {{ template_destpath }}
+
+[global]
+{% for __php_key, __php_value in __php_global_defaults | combine(php_fpm_global_settings) | dictsort %}
+{{ __php_key }} = {{ __php_value }}
+{% endfor %}
+include = {{ __php_pool_dir }}/ansible/*.conf

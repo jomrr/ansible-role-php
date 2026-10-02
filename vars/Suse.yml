@@ -1,0 +1,20 @@
+---
+# role: php
+# file: vars/Suse.yml
+
+__php_packages: [php8-fpm, php8-cli]
+__php_user: wwwrun
+__php_group: www
+__php_fpm_binary: /usr/sbin/php-fpm
+__php_service: php-fpm
+__php_fpm_config: /etc/php8/fpm/php-fpm.conf
+__php_pool_dir: /etc/php8/fpm/php-fpm.d
+__php_scan_dir: /etc/php8/conf.d
+__php_runtime_dir: /run/php-fpm
+__php_module_prefix: '10-'
+__php_validate_config: /usr/sbin/php-fpm -t -y %s
+__php_global_defaults:
+  pid: /run/php-fpm/php-fpm.pid
+  error_log: /var/log/php-fpm.log
+  log_level: notice
+  daemonize: 'no'

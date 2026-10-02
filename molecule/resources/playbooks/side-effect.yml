@@ -1,0 +1,70 @@
+---
+# role: php
+# file: molecule/resources/playbooks/side-effect.yml
+
+
+- name: PHP | Preview changed pools and modules
+  hosts: all
+  gather_facts: true
+  check_mode: true
+  vars: &changed
+    php_modules:
+      - name: bz2
+        state: disabled
+    php_fpm_pools:
+      - name: app
+        settings:
+          user: phpapp
+          group: phpapp
+          listen: /run/php-molecule-app.sock
+          listen.owner: phpapp
+          listen.group: phpapp
+          php_admin_value[memory_limit]: 256M
+        environment:
+          APP_ENV: changed
+  roles:
+    - role: '{{ lookup("ansible.builtin.env", "MOLECULE_PROJECT_DIRECTORY") }}'
+
+- name: PHP | Verify check mode preserved the active configuration
+  ansible.builtin.import_playbook: verify.yml
+
+- name: PHP | Change environments, disable an extension and remove a pool
+  hosts: all
+  gather_facts: true
+  vars: *changed
+  roles:
+    - role: '{{ lookup("ansible.builtin.env", "MOLECULE_PROJECT_DIRECTORY") }}'
+  post_tasks:
+    - name: PHP | Query the changed application
+      become: true
+      become_user: root
+      ansible.builtin.script:
+        cmd: ../files/fcgi_probe.py /run/php-molecule-app.sock /var/www/php-molecule/probe.php
+        executable: python3
+      changed_when: false
+      register: __php_changed
+      until: __php_changed is succeeded and ((__php_changed.stdout | from_json).body | from_json).environment == 'changed'
+      retries: 10
+      delay: 1
+
+    - name: PHP | Verify the changed environment, extension state and PHP override
+      ansible.builtin.assert:
+        quiet: true
+        that:
+          - not __php_body.bz2
+          - __php_body.environment == 'changed'
+          - __php_body.memory_limit == '256M'
+      vars:
+        __php_body: '{{ (__php_changed.stdout | from_json).body | from_json }}'
+
+    - name: PHP | Verify the removed pool socket closes
+      ansible.builtin.wait_for:
+        path: "{{ '/run/php' if ansible_facts.os_family == 'Debian' else '/run/php-fpm' }}/www.sock"
+        state: absent
+        timeout: 15
+
+- name: PHP | Restore the initial configuration
+  hosts: all
+  gather_facts: true
+  roles:
+    - role: '{{ lookup("ansible.builtin.env", "MOLECULE_PROJECT_DIRECTORY") }}'

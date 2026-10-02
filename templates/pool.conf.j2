@@ -1,0 +1,15 @@
+; Managed by ansible.
+; file: {{ template_destpath }}
+
+[{{ __php_pool.name }}]
+{% set __php_platform_pool = {
+  'user': __php_user, 'group': __php_group,
+  'listen.owner': __php_user, 'listen.group': __php_group,
+  'listen': __php_runtime_dir ~ '/' ~ __php_pool.name ~ '.sock'
+} %}
+{% for __php_key, __php_value in (__php_platform_pool | combine(php_fpm_pool_defaults, __php_pool.settings | default({}))).items() %}
+{{ __php_key }} = {{ __php_value }}
+{% endfor %}
+{% for __php_key, __php_value in (__php_pool.environment | default({})).items() %}
+env[{{ __php_key }}] = "{{ __php_value }}"
+{% endfor %}

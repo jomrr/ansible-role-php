@@ -1,0 +1,94 @@
+---
+# role: php
+# file: molecule/resources/playbooks/prepare.yml
+
+
+- name: PHP | Prepare application fixtures
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: PHP | Refresh APT metadata
+      become: true
+      become_user: root
+      ansible.builtin.apt:
+        update_cache: true
+      when: ansible_facts.pkg_mgr == 'apt'
+
+    - name: PHP | Refresh DNF metadata
+      become: true
+      become_user: root
+      ansible.builtin.dnf:
+        update_cache: true
+      when: ansible_facts.pkg_mgr in ['dnf', 'dnf5']
+
+    - name: PHP | Refresh Zypper metadata
+      become: true
+      become_user: root
+      community.general.zypper_repository:
+        repo: '*'
+        runrefresh: true
+      when: ansible_facts.pkg_mgr == 'zypper'
+
+    - name: PHP | Create a dedicated application group
+      become: true
+      become_user: root
+      ansible.builtin.group:
+        name: phpapp
+        system: true
+
+    - name: PHP | Create a dedicated application user
+      become: true
+      become_user: root
+      ansible.builtin.user:
+        name: phpapp
+        group: phpapp
+        system: true
+        create_home: false
+        shell: /bin/false
+
+    - name: PHP | Create the application directory
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: /var/www/php-molecule
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: PHP | Install the functional PHP probe
+      become: true
+      become_user: root
+      ansible.builtin.copy:
+        src: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/molecule/resources/files/probe.php"
+        dest: '/var/www/php-molecule/probe.{{ __php_suffix }}'
+        owner: root
+        group: root
+        mode: '0644'
+      loop: [php, txt]
+      loop_control:
+        loop_var: __php_suffix
+
+    - name: PHP | Create test service environment directory
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: /etc/systemd/system/service.d
+        state: directory
+        mode: '0755'
+
+    - name: PHP | Supply a master environment variable to test worker filtering
+      become: true
+      become_user: root
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/service.d/php-molecule.conf
+        content: |
+          [Service]
+          Environment=PHP_MOLECULE_UNLISTED=must-not-reach-workers
+        mode: '0644'
+
+    - name: PHP | Load the test service environment
+      become: true
+      become_user: root
+      ansible.builtin.systemd_service:
+        daemon_reload: true
