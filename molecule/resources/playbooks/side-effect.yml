@@ -8,6 +8,7 @@
   gather_facts: true
   check_mode: true
   vars: &changed
+    php_session_gc_paths: []
     php_modules:
       - name: bz2
         state: disabled
@@ -70,6 +71,28 @@
         path: "{{ '/run/php' if ansible_facts.os_family == 'Debian' else '/run/php-fpm' }}/www.sock"
         state: absent
         timeout: 15
+
+    - name: PHP | Verify removed session paths retain their data
+      become: true
+      become_user: root
+      ansible.builtin.script:
+        cmd: ../files/session_gc_probe.py /var/lib/php-molecule/sessions removed
+        executable: python3
+      changed_when: false
+
+    - name: PHP | Inspect the disabled session cleanup timer
+      become: true
+      become_user: root
+      ansible.builtin.systemd_service:
+        name: php-ansible-session-gc.timer
+      register: __php_gc_timer
+
+    - name: PHP | Verify unused cleanup is disabled
+      ansible.builtin.assert:
+        quiet: true
+        that:
+          - __php_gc_timer.status.ActiveState == 'inactive'
+          - __php_gc_timer.status.UnitFileState == 'disabled'
 
 - name: PHP | Restore the initial configuration
   hosts: all

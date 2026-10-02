@@ -1,0 +1,15 @@
+# Managed by ansible.
+# file: {{ template_destpath }}
+
+[Unit]
+Description=Clean managed PHP session directories
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-tmpfiles --clean /etc/tmpfiles.d/php-ansible-sessions.conf
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths={{ php_session_gc_paths | map(attribute='path') | join(' ') }}
+Nice=19
+IOSchedulingClass=idle

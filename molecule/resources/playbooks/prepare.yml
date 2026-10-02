@@ -78,7 +78,7 @@
         owner: phpapp
         group: phpapp
         mode: '0700'
-      loop: [tmp, uploads, changed]
+      loop: [tmp, uploads, changed, sessions]
       loop_control:
         loop_var: __php_directory
 

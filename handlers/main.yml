@@ -22,3 +22,31 @@
     name: '{{ __php_service }}'
     state: reloaded
   listen: reload php-fpm
+
+- name: PHP | Validate the session cleanup units
+  become: true
+  become_user: root
+  ansible.builtin.command:
+    argv:
+      - systemd-analyze
+      - verify
+      - --man=no
+      - /etc/systemd/system/php-ansible-session-gc.service
+      - /etc/systemd/system/php-ansible-session-gc.timer
+  changed_when: false
+  listen: reload session gc
+
+- name: PHP | Reload systemd session cleanup units
+  become: true
+  become_user: root
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  listen: reload session gc
+
+- name: PHP | Apply the updated session cleanup schedule
+  become: true
+  become_user: root
+  ansible.builtin.systemd_service:
+    name: php-ansible-session-gc.timer
+    state: "{{ 'restarted' if php_session_gc_paths | length > 0 else 'stopped' }}"
+  listen: reload session gc

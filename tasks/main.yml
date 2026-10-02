@@ -78,6 +78,30 @@
   no_log: true
   notify: reload php-fpm
 
+- name: PHP | Configure session directory cleanup
+  become: true
+  become_user: root
+  ansible.builtin.template:
+    src: session-tmpfiles.conf.j2
+    dest: /etc/tmpfiles.d/php-ansible-sessions.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: PHP | Configure the session cleanup service and timer
+  become: true
+  become_user: root
+  ansible.builtin.template:
+    src: 'session-gc.{{ __php_unit }}.j2'
+    dest: '/etc/systemd/system/php-ansible-session-gc.{{ __php_unit }}'
+    owner: root
+    group: root
+    mode: '0644'
+  loop: [service, timer]
+  loop_control:
+    loop_var: __php_unit
+  notify: reload session gc
+
 - name: PHP | Configure application pools
   become: true
   become_user: root
@@ -159,6 +183,14 @@
 
 - name: PHP | Apply validated configuration changes
   ansible.builtin.meta: flush_handlers
+
+- name: PHP | Apply the session cleanup timer state
+  become: true
+  become_user: root
+  ansible.builtin.systemd_service:
+    name: php-ansible-session-gc.timer
+    enabled: '{{ php_session_gc_paths | length > 0 }}'
+    state: "{{ 'started' if php_session_gc_paths | length > 0 else 'stopped' }}"
 
 - name: PHP | Enable and start PHP-FPM
   become: true

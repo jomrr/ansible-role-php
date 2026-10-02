@@ -1,0 +1,13 @@
+# Managed by ansible.
+# file: {{ template_destpath }}
+
+[Unit]
+Description=Schedule managed PHP session cleanup
+
+[Timer]
+OnBootSec={{ php_session_gc_interval }}s
+OnUnitActiveSec={{ php_session_gc_interval }}s
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

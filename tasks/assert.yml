@@ -71,3 +71,91 @@
     loop_var: __php_pool
     label: '{{ __php_pool.name }}'
   no_log: true
+
+- name: PHP | Validate session cleanup policy
+  ansible.builtin.assert:
+    that:
+      - php_session_gc_interval > 0
+      - php_session_gc_paths | map(attribute='path') | unique | length == php_session_gc_paths | length
+    quiet: true
+    fail_msg: 'Session cleanup requires a positive interval and unique directory paths.'
+
+- name: PHP | Validate dedicated session cleanup paths
+  ansible.builtin.assert:
+    that:
+      - __php_session_gc.path is match('^/([A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+\Z')
+      - "'.' not in __php_session_gc.path.split('/')"
+      - "'..' not in __php_session_gc.path.split('/')"
+      - __php_session_gc.path not in ['/var/tmp', '/var/lib', '/var/cache', '/var/www']
+      - __php_session_gc.maxlifetime > 0
+      - >-
+        php_session_gc_paths | map(attribute='path')
+        | select('match', '^' ~ (__php_session_gc.path | regex_escape) ~ '/') | length == 0
+    quiet: true
+    fail_msg: 'Use dedicated, literal absolute session directories and positive retention in seconds; shared system directories are unsafe.'
+  loop: '{{ php_session_gc_paths }}'
+  loop_control:
+    loop_var: __php_session_gc
+    label: '{{ __php_session_gc.path }}'
+
+- name: PHP | Inspect registered session directories
+  become: true
+  become_user: root
+  ansible.builtin.stat:
+    path: '{{ __php_session_gc.path }}'
+    follow: false
+    get_checksum: false
+    get_mime: false
+  loop: '{{ php_session_gc_paths }}'
+  loop_control:
+    loop_var: __php_session_gc
+    label: '{{ __php_session_gc.path }}'
+  register: __php_session_directories
+
+- name: PHP | Require existing session directories
+  ansible.builtin.assert:
+    that:
+      - __php_session_directory.stat.isdir | default(false)
+    quiet: true
+    fail_msg: 'Provision each registered session directory with application ownership before applying the PHP role; symlinks are unsupported.'
+  loop: '{{ __php_session_directories.results }}'
+  loop_control:
+    loop_var: __php_session_directory
+    label: '{{ __php_session_directory.__php_session_gc.path }}'
+
+- name: PHP | Require cleanup coverage for custom file sessions
+  ansible.builtin.assert:
+    that:
+      - __php_session_matches | length == 1
+      - __php_session_lifetime is match('^[1-9][0-9]*$')
+      - (__php_session_matches | map(attribute='maxlifetime') | first | default(0)) >= __php_session_lifetime | int
+    quiet: true
+    fail_msg: >-
+      Register each custom file-session directory in php_session_gc_paths with retention at least session.gc_maxlifetime.
+      Use literal flat paths (including the host chroot prefix); N;MODE;path syntax and dynamic paths are unsupported.
+  loop: '{{ php_fpm_pools }}'
+  loop_control:
+    loop_var: __php_pool
+    label: '{{ __php_pool.name }}'
+  vars:
+    __php_session_ini: '{{ php_ini_defaults | combine(php_ini_settings) }}'
+    __php_session_pool: '{{ php_fpm_pool_defaults | combine(__php_pool.settings | default({})) }}'
+    __php_session_handler: >-
+      {{ __php_session_pool.get('php_admin_value[session.save_handler]',
+         __php_session_pool.get('php_value[session.save_handler]', __php_session_ini.get('session.save_handler', 'files')))
+         | string | trim('"') | trim("'") }}
+    __php_session_path: >-
+      {{ __php_session_pool.get('php_admin_value[session.save_path]',
+         __php_session_pool.get('php_value[session.save_path]', __php_session_ini.get('session.save_path', '')))
+         | string | trim('"') | trim("'") }}
+    __php_session_lifetime: >-
+      {{ __php_session_pool.get('php_admin_value[session.gc_maxlifetime]',
+         __php_session_pool.get('php_value[session.gc_maxlifetime]', __php_session_ini.get('session.gc_maxlifetime', '1440')))
+         | string | trim('"') | trim("'") }}
+    __php_session_host_path: >-
+      {{ (__php_session_pool.get('chroot', '') | trim('"') | trim("'") | regex_replace('/+$', '')) ~ __php_session_path }}
+    __php_session_matches: "{{ php_session_gc_paths | selectattr('path', 'equalto', __php_session_host_path) }}"
+  when:
+    - __php_session_handler | lower == 'files'
+    - __php_session_path | length > 0
+  no_log: true

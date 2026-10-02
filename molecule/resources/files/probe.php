@@ -6,6 +6,14 @@ $temporaryDirectory = $temporary === false ? false : dirname($temporary);
 if ($temporary !== false) {
     unlink($temporary);
 }
+$sessionWritten = false;
+if (getenv('APP_ENV') === 'production') {
+    session_start();
+    $_SESSION['probe'] = 'managed-session';
+    $sessionFile = session_save_path() . '/sess_' . session_id();
+    session_write_close();
+    $sessionWritten = is_file($sessionFile);
+}
 header('Content-Type: application/json');
 echo json_encode([
     'environment' => getenv('APP_ENV'),
@@ -27,6 +35,9 @@ echo json_encode([
     'display_errors' => $settings['display_errors'],
     'expose_php' => $settings['expose_php'],
     'fix_pathinfo' => $settings['cgi.fix_pathinfo'],
+    'session_written' => $sessionWritten,
+    'session_path' => $settings['session.save_path'],
+    'session_lifetime' => $settings['session.gc_maxlifetime'],
     'strict_session' => $settings['session.use_strict_mode'],
     'cookie_secure' => $settings['session.cookie_secure'],
     'cookie_httponly' => $settings['session.cookie_httponly'],

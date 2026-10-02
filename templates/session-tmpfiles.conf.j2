@@ -1,0 +1,6 @@
+# Managed by ansible.
+# file: {{ template_destpath }}
+
+{% for __php_session_gc in php_session_gc_paths %}
+e {{ __php_session_gc.path }} - - - mM:{{ __php_session_gc.maxlifetime }}s
+{% endfor %}

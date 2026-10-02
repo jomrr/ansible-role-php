@@ -24,6 +24,7 @@ Zend extensions. Reapplying unchanged input is idempotent.
 - Global PHP settings, FPM master configuration and the authoritative list of
   application pools.
 - Selected extension INI files, including explicit enabled and disabled states.
+- Explicit session-directory cleanup rules and a dedicated systemd timer.
 - Validated FPM reloads and an enabled, running service.
 
 ### Not Managed
@@ -173,6 +174,34 @@ Default:
 php_fpm_global_settings: {}
 ```
 
+### `php_session_gc_paths`
+
+Type: `list`. Required: `false`.
+
+Authoritative cleanup paths for file sessions. Every custom session.save_path
+configured through PHP baseline or pool settings must be registered. Expired
+directory contents are cleaned by modification time; removed entries leave
+session data intact.
+
+Default:
+
+```yaml
+php_session_gc_paths: []
+```
+
+### `php_session_gc_interval`
+
+Type: `int`. Required: `false`.
+
+Positive seconds between cleanup runs; the dedicated systemd timer is enabled
+only while cleanup paths are configured.
+
+Default:
+
+```yaml
+php_session_gc_interval: 900
+```
+
 ## Managed Files
 
 - `RedHat: /etc/php-fpm.conf, /etc/php-fpm.d/ansible/*.conf and selected files
@@ -183,6 +212,8 @@ php_fpm_global_settings: {}
   selected files in /etc/php8/conf.d/.`
 - `The PHP baseline is written to 99-ansible.ini in the platform scan
   directory.`
+- `Session cleanup uses /etc/tmpfiles.d/php-ansible-sessions.conf and
+  /etc/systemd/system/php-ansible-session-gc.{service,timer}.`
 
 ## Check Mode
 
@@ -251,6 +282,28 @@ configuration before reload, then enables and starts FPM.
   and disables PHP's realpath cache. Retain separate application accounts and
   filesystem permissions. Add paths required by application libraries
   explicitly.
+- Register custom file-session directories in php_session_gc_paths with explicit
+  maxlifetime seconds. The role rejects session.save_path values from
+  php_ini_defaults, php_ini_settings or native pool settings without cleanup
+  coverage. Retention must cover every configured session.gc_maxlifetime using
+  that path (PHP's default is 1440 seconds).
+- The php-ansible-session-gc.timer runs every php_session_gc_interval seconds
+  (default 900), independently of requests and vendor cleanup. Each registered
+  directory is cleaned recursively by modification time using systemd-tmpfiles.
+  Only dedicated session directories belong in this list: all expired contents
+  are eligible, not just sess_* files. Directory ownership and creation remain
+  application tasks.
+- Cleanup paths must be unique, non-overlapping, existing absolute host
+  directories without whitespace, globs or dynamic expansions. For chroot pools,
+  register the host path including the chroot prefix. Sharded N;MODE;path
+  session syntax is unsupported. Removing an entry removes its cleanup rule
+  without deleting remaining data; an empty list stops and disables the
+  dedicated timer.
+- Non-file session handlers such as Redis require their own expiration policy
+  and are not enrolled in filesystem cleanup. Paths and lifetimes changed by
+  application code, .user.ini, module settings or unmanaged PHP configuration
+  cannot be discovered here; register them explicitly and use php_admin_value
+  for session paths and lifetimes when applications must not override them.
 - A pool's environment map emits env[NAME] entries with quoted values. Names
   must be shell-style identifiers; values must not contain double quotes or line
   breaks. FPM expands $NAME references from the master's environment.
@@ -326,6 +379,9 @@ The allowed paths cover these directories without granting shared /tmp access.
   gather_facts: true
   roles:
     - role: jomrr.php
+      php_session_gc_paths:
+        - path: /var/lib/php/kanboard/session
+          maxlifetime: 1440
       php_modules:
         - name: bz2
           state: enabled
@@ -357,6 +413,7 @@ The allowed paths cover these directories without granting shared /tmp access.
             php_admin_value[memory_limit]: 128M
             php_value[session.save_handler]: files
             php_value[session.save_path]: /var/lib/php/kanboard/session
+            php_admin_value[session.gc_maxlifetime]: '1440'
             php_value[soap.wsdl_cache_dir]: /var/lib/php/kanboard/wsdlcache
             php_value[opcache.file_cache]: /var/lib/php/kanboard/opcache
           environment:
@@ -379,6 +436,9 @@ The allowed paths cover these directories without granting shared /tmp access.
 - [OPcache configuration](https://www.php.net/manual/en/opcache.configuration.php)
 - [PHP shared-code INI cache issue](https://github.com/php/php-src/issues/8699)
 - [PHP session security](https://www.php.net/manual/en/session.security.ini.php)
+- [PHP session storage and garbage collection](https://www.php.net/manual/en/session.configuration.php)
+- [systemd tmpfiles configuration](https://www.freedesktop.org/software/systemd/man/tmpfiles.d.html)
+- [Debian session cleanup implementation](https://sources.debian.org/src/php-defaults/96/sessionclean/)
 
 ## Author
 

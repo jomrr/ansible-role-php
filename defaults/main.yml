@@ -75,3 +75,11 @@ php_fpm_pools:
 # Native global FPM directives overriding the platform baseline.
 php_fpm_global_settings: {}
 # process.max: '64'
+
+# Dedicated file-session directories with explicit cleanup retention in seconds.
+php_session_gc_paths: []
+# - path: /var/lib/php/kanboard/session
+#   maxlifetime: 1440
+
+# Seconds between cleanup runs for registered session directories.
+php_session_gc_interval: 900

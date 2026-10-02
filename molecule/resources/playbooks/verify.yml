@@ -69,8 +69,56 @@
           - __php_body.sys_temp_dir == '/var/lib/php-molecule/tmp'
           - __php_body.upload_tmp_dir == '/var/lib/php-molecule/uploads'
           - __php_body.temporary_directory == '/var/lib/php-molecule/tmp'
+          - __php_body.session_written
+          - __php_body.session_path == '/var/lib/php-molecule/sessions'
+          - __php_body.session_lifetime == '1440'
       vars:
         __php_body: '{{ (__php_responses.results[1].stdout | from_json).body | from_json }}'
+
+    - name: PHP | Exercise registered session cleanup
+      become: true
+      become_user: root
+      ansible.builtin.script:
+        cmd: ../files/session_gc_probe.py /var/lib/php-molecule/sessions enrolled
+        executable: python3
+      changed_when: false
+
+    - name: PHP | Inspect the session cleanup timer
+      become: true
+      become_user: root
+      ansible.builtin.systemd_service:
+        name: php-ansible-session-gc.timer
+      register: __php_gc_timer
+
+    - name: PHP | Verify scheduled session cleanup
+      ansible.builtin.assert:
+        quiet: true
+        that:
+          - __php_gc_timer.status.ActiveState == 'active'
+          - __php_gc_timer.status.UnitFileState == 'enabled'
+
+    - name: PHP | Reject a custom session path without cleanup ownership
+      block:
+        - name: PHP | Apply an unregistered file-session path
+          ansible.builtin.include_role:
+            name: '{{ lookup("ansible.builtin.env", "MOLECULE_PROJECT_DIRECTORY") }}'
+          vars:
+            php_session_gc_paths: []
+            php_fpm_pools:
+              - name: app
+                settings:
+                  php_value[session.save_handler]: FILES
+                  php_value[session.save_path]: /var/lib/php-molecule/sessions
+
+        - name: PHP | Fail when unregistered sessions are accepted
+          ansible.builtin.fail:
+            msg: The role accepted a custom session directory without cleanup.
+      rescue:
+        - name: PHP | Verify session ownership failed before configuration changes
+          ansible.builtin.assert:
+            quiet: true
+            that:
+              - "ansible_failed_task.name == 'PHP | Require cleanup coverage for custom file sessions'"
 
     - name: PHP | Request a non-PHP extension
       become: true

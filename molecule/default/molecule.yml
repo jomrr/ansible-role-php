@@ -38,6 +38,9 @@ provisioner:
         php_modules:
           - name: "bz2"
             state: "enabled"
+        php_session_gc_paths:
+          - path: "/var/lib/php-molecule/sessions"
+            maxlifetime: 1440
         php_fpm_pools:
           - name: "www"
           - name: "app"
@@ -55,6 +58,8 @@ provisioner:
               php_admin_value[open_basedir]: "/"
               php_admin_value[sys_temp_dir]: "/tmp"
               php_admin_value[upload_tmp_dir]: "/tmp"
+              php_value[session.save_path]: "/var/lib/php-molecule/sessions"
+              php_admin_value[session.gc_maxlifetime]: "1440"
             environment:
               APP_ENV: "production"
               PATH: "/usr/local/bin:/usr/bin:/bin"

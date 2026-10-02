@@ -150,3 +150,27 @@ argument_specs:
         no_log: true
         description: Native global FPM overrides; the role owns include. Defaults preserve
           the distribution PID and error log paths.
+      php_session_gc_paths:
+        type: list
+        elements: dict
+        default: []
+        options:
+          path:
+            type: str
+            required: true
+            description: Existing dedicated session directory on the host; a literal absolute
+              path without whitespace or glob characters.
+          maxlifetime:
+            type: int
+            required: true
+            description: Positive retention in seconds, at least the session.gc_maxlifetime
+              of every pool using this path.
+        description: Authoritative cleanup paths for file sessions. Every custom session.save_path
+          configured through PHP baseline or pool settings must be registered. Expired directory
+          contents are cleaned by modification time; removed entries leave session data
+          intact.
+      php_session_gc_interval:
+        type: int
+        default: 900
+        description: Positive seconds between cleanup runs; the dedicated systemd timer
+          is enabled only while cleanup paths are configured.
