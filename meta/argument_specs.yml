@@ -50,7 +50,6 @@ argument_specs:
           settings:
             type: dict
             default: {}
-            no_log: true
             description: Additional INI settings in this file; supply native INI values
               as strings.
         description: Selected extension INI files; omitted modules remain unmanaged. Packages
@@ -71,13 +70,11 @@ argument_specs:
           session.cookie_httponly: '1'
           session.cookie_secure: '1'
           session.cookie_samesite: Lax
-        no_log: true
         description: PHP hardening baseline merged with php_ini_settings; string values
           use native INI syntax.
       php_ini_settings:
         type: dict
         default: {}
-        no_log: true
         description: Overrides merged into php_ini_defaults; specify native INI values as
           strings.
       php_fpm_pool_defaults:
@@ -102,7 +99,6 @@ argument_specs:
           php_admin_flag[display_errors]: 'off'
           php_admin_value[error_log]: /proc/self/fd/2
           php_admin_value[memory_limit]: 128M
-        no_log: true
         description: Native pool baseline; platform worker/socket ownership, restricted
           sockets and bounded dynamic workers.
       php_fpm_pools:
@@ -133,13 +129,11 @@ argument_specs:
           settings:
             type: dict
             default: {}
-            no_log: true
             description: Native directives merged over php_fpm_pool_defaults; listen defaults
               to PLATFORM_RUNTIME_DIR/NAME.sock.
           environment:
             type: dict
             default: {}
-            no_log: true
             description: Explicit env[NAME] values for this pool, including FPM $VARIABLE
               references; do not include quotes or line breaks.
         description: Authoritative nonempty list of pools; removed pools are deleted from
@@ -147,7 +141,6 @@ argument_specs:
       php_fpm_global_settings:
         type: dict
         default: {}
-        no_log: true
         description: Native global FPM overrides; the role owns include. Defaults preserve
           the distribution PID and error log paths.
       php_session_gc_paths:
