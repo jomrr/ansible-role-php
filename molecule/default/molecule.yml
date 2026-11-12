@@ -30,9 +30,6 @@ provisioner:
             - "php-opcache"
           Suse:
             - "php8-bz2"
-          openSUSE Leap:
-            - "php8-bz2"
-            - "php8-opcache"
         php_extra_packages: "{{ __php_test_packages[ansible_facts.distribution] | default(__php_test_packages[ansible_facts.os_family])\
           \ }}"
         php_modules:
