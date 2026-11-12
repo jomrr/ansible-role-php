@@ -247,9 +247,10 @@ configuration before reload, then enables and starts FPM.
   is installed.
 - HTTPS is expected; HTTP-only deployments must explicitly set
   session.cookie_secure to '0'.
-- Pool files, the master and PHP baseline are root-owned with mode 0600. Tasks
-  rendering potentially secret settings hide output. Module INI files have mode
-  0644 for compatibility with CLI; do not store secrets in module settings.
+- Pool files and the master are root-owned with mode 0600. Tasks rendering
+  potentially secret settings hide output. PHP baseline and module INI files
+  have mode 0644 for compatibility with CLI; do not store secrets in these
+  settings.
 - Pools sharing a worker identity or filesystem permissions are not isolated
   tenants. Use separate accounts and private session, temporary and cache
   directories per application; an FPM pool is not a security sandbox.
